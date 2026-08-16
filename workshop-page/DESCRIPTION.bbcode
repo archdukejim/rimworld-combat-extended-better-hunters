@@ -1,0 +1,31 @@
+[h1]Better Hunters (Combat Extended)[/h1]
+
+[b]Requires Combat Extended.[/b] This mod does nothing without it.
+
+Makes Combat Extended hunters position before they shoot. Stock CE hunters open fire the instant an animal enters weapon range — ranges are long, CE's hit chance falls off hard with distance, and the usual result is a string of low-probability shots that wound the animal, which then flees or turns manhunter.
+
+Better Hunters walks the hunter in until Combat Extended's own hit-chance solver says the first shot is a high-probability kill, then fires — but never closer than a safety standoff worked out from the animal's revenge chance, its body size, whether it's a predator, and how many of its herd are nearby. If the weapon has a CE bipod, the hunter deploys it before shooting.
+
+[b]Keywords:[/b] Combat Extended, CE, hunting, hunter AI, manhunter, revenge, accuracy, hit chance, bipod, positioning, engagement range, animal hunting, colonist AI.
+
+[img]https://i.imgur.com/jUngZtc.png[/img]
+
+[h1]At a glance[/h1]
+[list]
+[*] Hunters close to the range where CE says the shot actually lands, instead of firing at max range
+[*] A safety standoff scaled to revenge chance, body size, predator status and herd size
+[*] CE bipods deployed before the shot — stock CE never does this for hunters, because its auto-setup requires a drafted pawn
+[*] Every threshold is a slider, plus a master on/off switch
+[*] Behaviour only: no new defs, no saved data, safe to add or remove mid-save
+[*] Only the colonist hunting job is touched — predator hunting, drafted combat and CE melee hunting are untouched
+[/list]
+
+[h1]Compatibility[/h1]
+[list]
+[*] RimWorld 1.6
+[*] Hard dependency: [url=https://steamcommunity.com/workshop/browse/?appid=294100&searchtext=Combat+Extended]Combat Extended[/url]
+[*] Does not patch anything CE patches — no known conflicts
+[/list]
+
+[h1]Source[/h1]
+[url=https://github.com/archdukejim/rimworld-combat-extended-better-hunters]github.com/archdukejim/rimworld-combat-extended-better-hunters[/url]

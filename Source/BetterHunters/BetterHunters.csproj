@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>BetterHunters</AssemblyName>
+    <RootNamespace>BetterHunters</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Optimize>true</Optimize>
+    <DebugType>none</DebugType>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <!-- Drop the built dll straight into the mod's Assemblies folder. -->
+    <OutputPath>$(MSBuildProjectDirectory)\..\..\Assemblies\</OutputPath>
+    <!-- Nothing but our own dll should ever land in Assemblies. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- .NET Framework 4.7.2 reference assemblies, so this builds with only the dotnet SDK installed. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
+    <!-- RimWorld 1.6 reference assemblies (Assembly-CSharp, UnityEngine, ...). Compile-time only. -->
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.4871">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+
+    <!-- Harmony is supplied at runtime by the brrainz.harmony mod; never ship a copy. -->
+    <PackageReference Include="Lib.Harmony" Version="2.3.6">
+      <PrivateAssets>all</PrivateAssets>
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!--
+    Combat Extended is deliberately NOT referenced. Every CE member is reached by reflection through
+    CeBindings.cs, so this builds without CE present and degrades gracefully across CE versions.
+  -->
+
+</Project>

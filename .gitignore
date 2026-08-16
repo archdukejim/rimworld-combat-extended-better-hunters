@@ -1,0 +1,15 @@
+# Build intermediates
+[Oo]bj/
+[Bb]in/
+*.user
+*.suo
+*.csproj.user
+
+# The built mod assembly is committed so the mod is usable straight from a clone.
+!Assemblies/
+!Assemblies/*.dll
+
+# IDE
+.vs/
+.idea/
+*.DotSettings.user
