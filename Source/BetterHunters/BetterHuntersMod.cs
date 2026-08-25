@@ -43,6 +43,19 @@ namespace BetterHunters
         /// <summary>Deploy a CE bipod, if present, before taking the shot.</summary>
         public bool deployBipod = true;
 
+        /// <summary>
+        /// Keep re-checking the safe standoff during the approach instead of committing once. When the
+        /// prey advances or a herd gathers while the hunter is walking in, it re-picks a safe cell; and
+        /// it will cancel a shot lined up from inside the risk cap so the hunter steps back out first.
+        /// </summary>
+        public bool recheckDuringApproach = true;
+
+        /// <summary>
+        /// When a hunter breaks off because the prey closed inside the safety distance, pause the game and
+        /// flag the pawn, so the player can take over and micro. Only meaningful with the re-check on.
+        /// </summary>
+        public bool pauseOnBreakOff = true;
+
         public bool debugLogging = false;
 
         public override void ExposeData()
@@ -57,6 +70,8 @@ namespace BetterHunters
             Scribe_Values.Look(ref maxRiskCapCells, "maxRiskCapCells", 40f);
             Scribe_Values.Look(ref closeForOneShotKill, "closeForOneShotKill", true);
             Scribe_Values.Look(ref deployBipod, "deployBipod", true);
+            Scribe_Values.Look(ref recheckDuringApproach, "recheckDuringApproach", true);
+            Scribe_Values.Look(ref pauseOnBreakOff, "pauseOnBreakOff", true);
             Scribe_Values.Look(ref debugLogging, "debugLogging", false);
         }
     }
@@ -125,6 +140,23 @@ namespace BetterHunters
             list.CheckboxLabeled("Deploy CE bipod before shooting", ref Settings.deployBipod,
                 "If the hunting weapon has a Combat Extended bipod, set it up at the firing position "
                 + "before taking the shot.");
+
+            list.CheckboxLabeled("Re-check the standoff during the approach", ref Settings.recheckDuringApproach,
+                "Keep verifying the safe distance while the hunter walks in, instead of committing to the "
+                + "spot chosen at the start. If the prey drifts toward that spot, the hunter re-routes to a "
+                + "fresh safe cell. If the prey closes the distance once the hunter is in position - the "
+                + "rare case of a predator turning to hunt the colonist - the hunter breaks off rather than "
+                + "shooting from inside the safety distance.");
+
+            if (Settings.recheckDuringApproach)
+            {
+                // Sub-option of the re-check above; only relevant when a break-off can happen.
+                list.CheckboxLabeled("      Pause and flag the pawn on break-off", ref Settings.pauseOnBreakOff,
+                    "When a hunter breaks off because the prey has closed inside the safety distance, pause "
+                    + "the game and jump a message to the pawn, so you can step in and micro. The game only "
+                    + "pauses on its own once an animal escalates to a full predator-hunt of the colonist; "
+                    + "this catches the earlier moment the hunter decides to disengage.");
+            }
 
             list.CheckboxLabeled("Debug logging", ref Settings.debugLogging,
                 "Logs the computed easy-shot range, risk cap and final engagement range for each hunt.");

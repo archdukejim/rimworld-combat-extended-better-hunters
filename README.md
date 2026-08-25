@@ -61,6 +61,7 @@ model — and it is only ever used to justify ignoring the standoff, never to ex
 | Target | Kind | Purpose |
 | --- | --- | --- |
 | `Verse.AI.CastPositionFinder.TryFindCastPosition(CastPositionRequest, out IntVec3)` | prefix + postfix | The engagement-range decision |
+| `Verse.AI.JobDriver.DriverTick()` | postfix (hunts only) | Re-check the standoff during the approach |
 | `CombatExtended.Verb_LaunchProjectileCE.TryStartCastOn(...)` | prefix | Deploy bipod before the shot |
 | `Verse.Game.FinalizeInit()` | postfix | Drop in-memory caches on load |
 
@@ -86,8 +87,39 @@ patch it** (verified against CE's full Harmony patch directory), so there is no 
 - If narrowing the request leaves vanilla with nowhere to stand, the postfix retries **once** with the
   untouched request (guarded against re-entry) so the hunt degrades to stock CE instead of failing.
 
+`TryFindCastPosition` runs **once**, when the `GotoCastPosition` toil is set up. After that vanilla
+commits to the cell: the pawn walks the whole path, and its fire loop only recomputes position when it
+*loses line of fire* — never when the standoff simply becomes unsafe. So a prey that advances, or a herd
+that gathers, while the hunter is walking in or lining up the shot leaves the chosen distance stale.
+
+The **`JobDriver.DriverTick` postfix** (filtered to `JobDefOf.Hunt`, throttled to ~2×/sec) closes that
+gap by re-checking the standoff against the prey's *current* position, and reacts in one of two ways:
+
+- **Still walking in** — if the cell the hunter is heading to is now inside the risk cap, it re-routes to
+  a fresh safe cell (same `[riskCap, engagementRange]` annulus search the cast-position postfix uses).
+  No shot is in progress, so this is seamless.
+- **Already in position** (or cornered with nowhere safe to walk to) — the prey has closed the distance
+  *onto* the hunter. The hunter **breaks off the hunt** (`EndCurrentJob`) and disengages rather than
+  shooting point-blank. In practice this is the rare "*&lt;predator&gt; is hunting &lt;colonist&gt; for
+  food*" situation, better handled by stopping than by kiting.
+
+On break-off, with **Pause and flag the pawn on break-off** on (default), the mod pauses the game and
+jumps a `ThreatSmall` message to the hunter so the player can take over. It is throttled to once per
+~42s per hunter (matching vanilla's own predator-hunting-colonist cadence) so a chase can't spam letters
+or wrestle game speed from the player. This is well-targeted because a break-off only happens when the
+risk cap is above zero — a docile animal that merely wanders close never triggers one. It complements the
+game's built-in pause, which only fires once an animal escalates to a full `ThreatBig` predator-hunt of
+the colonist (and only if the player's *Auto-pause on* option is at *Major threats* or lower); the mod
+catches the earlier moment the hunter decides to disengage.
+
+The per-tick cost is a type check; the cached solve, distance check, and bounded cell scan only run on
+the throttled tick and only for an actual hunter. It is a postfix that reads state and (rarely) re-routes
+the pather or ends the job, so it does not collide with CE. Toggle it with **Re-check the standoff during
+the approach** (on by default).
+
 Only `JobDefOf.Hunt` is affected. Predator hunting (`JobDefOf.PredatorHunt`), drafted combat, and CE
-melee hunting all keep stock behaviour.
+melee hunting all keep stock behaviour. The downed-prey melee-execute and corpse-collection phases of the
+hunt job are skipped too — the re-check only governs the ranged approach.
 
 ---
 
@@ -136,6 +168,8 @@ expect the accuracy benefit to show up across a burst rather than on shot one.
 | Maximum standoff | 40 cells | Ceiling on the computed risk cap |
 | Close in for one-shot kills | on | Allow breaching the standoff for a likely instant kill |
 | Deploy CE bipod before shooting | on | |
+| Re-check the standoff during the approach | on | Re-route to a safe cell en route; break off the hunt if the prey closes onto the hunter |
+| &nbsp;&nbsp;↳ Pause and flag the pawn on break-off | on | On break-off, pause the game and jump a message to the hunter so you can micro |
 | Debug logging | off | Logs easy range / risk cap / engagement range per hunt |
 
 ---

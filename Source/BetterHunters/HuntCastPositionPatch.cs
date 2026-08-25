@@ -159,7 +159,11 @@ namespace BetterHunters
 
                 // Vanilla picked a cell inside the danger radius (usually because it had good cover).
                 // Re-pick from the annulus [riskCap, engagementRange].
-                if (TryFindStandoffCell(__state, newReq, out IntVec3 better))
+                if (StandoffCells.TryFind(
+                        __state.hunter, __state.victim, __state.verb,
+                        __state.solution.riskCap, __state.solution.engagementRange,
+                        newReq.maxRangeFromCaster, newReq.locus, newReq.maxRangeFromLocus,
+                        out IntVec3 better))
                 {
                     dest = better;
                 }
@@ -168,81 +172,6 @@ namespace BetterHunters
             {
                 Log.ErrorOnce("[BetterHunters] cast-position postfix failed: " + ex, 0x5BE7B2);
             }
-        }
-
-        /// <summary>
-        /// Picks the best cell in the ring between the risk cap and the engagement range: must be
-        /// standable, reachable, inside the request's own limits, and have a clear shot at the prey
-        /// according to CE's own line-of-fire check (Verb_LaunchProjectileCE.CanHitTargetFrom).
-        /// Among valid cells we take the one nearest the hunter, i.e. the least walking.
-        /// </summary>
-        private static bool TryFindStandoffCell(HuntEngagement state, CastPositionRequest req, out IntVec3 result)
-        {
-            result = IntVec3.Invalid;
-
-            Pawn hunter = state.hunter;
-            Pawn victim = state.victim;
-            Map map = victim.Map;
-
-            if (map == null || hunter.Map != map)
-            {
-                return false;
-            }
-
-            float minDist = state.solution.riskCap;
-            // Give the ring some width even when the engagement range sits exactly on the risk cap
-            // (which is what the "hold at the safety distance" branch of the solver produces).
-            float maxDist = Mathf.Max(state.solution.engagementRange, minDist + 3f);
-
-            float bestScore = float.MaxValue;
-            int examined = 0;
-            const int MaxExamined = 400; // keep the scan bounded; hunts are frequent
-
-            foreach (IntVec3 cell in GenRadial.RadialCellsAround(victim.Position, minDist, maxDist))
-            {
-                if (++examined > MaxExamined)
-                {
-                    break;
-                }
-
-                if (!cell.InBounds(map) || !cell.Standable(map))
-                {
-                    continue;
-                }
-
-                // Respect the limits the caller put on the request.
-                if (req.maxRangeFromCaster > 0f
-                    && (cell - hunter.Position).LengthHorizontal > req.maxRangeFromCaster)
-                {
-                    continue;
-                }
-
-                if (req.maxRangeFromLocus > 0f
-                    && (cell - req.locus).LengthHorizontal > req.maxRangeFromLocus)
-                {
-                    continue;
-                }
-
-                if (cell.IsForbidden(hunter) || !hunter.CanReach(cell, PathEndMode.OnCell, Danger.Deadly))
-                {
-                    continue;
-                }
-
-                // CE's own check - covers both line of sight and CE's range/height rules.
-                if (!state.verb.CanHitTargetFrom(cell, victim))
-                {
-                    continue;
-                }
-
-                float score = (cell - hunter.Position).LengthHorizontalSquared;
-                if (score < bestScore)
-                {
-                    bestScore = score;
-                    result = cell;
-                }
-            }
-
-            return result.IsValid;
         }
     }
 }

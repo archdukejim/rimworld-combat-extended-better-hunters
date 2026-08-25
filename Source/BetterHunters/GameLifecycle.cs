@@ -13,6 +13,7 @@ namespace BetterHunters
         public static void Postfix()
         {
             EngagementSolver.ClearCache();
+            HuntApproachWatchdog.Reset();
             BipodDeployPatch.Reset();
         }
     }
