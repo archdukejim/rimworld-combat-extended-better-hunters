@@ -16,8 +16,10 @@ namespace BetterHunters
     /// </summary>
     internal static class StandoffCells
     {
-        // Keep the scan bounded; hunts are frequent and this can run every tick when a hunter is unsafe.
-        private const int MaxExamined = 400;
+        // Keep the scan bounded. Each examined cell costs a reachability check and a CE line-of-fire test,
+        // so this caps the worst-case spike; the ring is walked nearest-the-prey first, so the useful
+        // cells are hit early anyway.
+        private const int MaxExamined = 250;
 
         /// <param name="maxRangeFromCaster">Caller cap on distance from the hunter, or 0 for none.</param>
         /// <param name="locus">Locus for <paramref name="maxRangeFromLocus"/>; ignored when that is 0.</param>

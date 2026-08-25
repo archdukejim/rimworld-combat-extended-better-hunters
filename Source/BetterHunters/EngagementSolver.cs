@@ -46,7 +46,11 @@ namespace BetterHunters
         }
 
         private static readonly Dictionary<int, CacheEntry> Cache = new Dictionary<int, CacheEntry>();
-        private const int CacheLifetimeTicks = 120;
+
+        // The solve reflects into CE and does a radial herd scan, so it is the mod's heaviest recurring
+        // op. Its inputs (weapon, race traits, herd size) change slowly, so a ~4s cache is safe and keeps
+        // the approach watchdog's periodic re-solves as cheap dictionary hits.
+        private const int CacheLifetimeTicks = 240;
 
         /// <summary>
         /// Works out the engagement range for this hunter/prey/weapon triple.

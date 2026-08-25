@@ -60,10 +60,12 @@ model — and it is only ever used to justify ignoring the standoff, never to ex
 
 | Target | Kind | Purpose |
 | --- | --- | --- |
-| `Verse.AI.CastPositionFinder.TryFindCastPosition(CastPositionRequest, out IntVec3)` | prefix + postfix | The engagement-range decision |
-| `Verse.AI.JobDriver.DriverTick()` | postfix (hunts only) | Re-check the standoff during the approach |
+| `Verse.AI.CastPositionFinder.TryFindCastPosition(CastPositionRequest, out IntVec3)` | prefix + postfix | The engagement-range decision (prefix also registers the hunt for re-checking) |
 | `CombatExtended.Verb_LaunchProjectileCE.TryStartCastOn(...)` | prefix | Deploy bipod before the shot |
 | `Verse.Game.FinalizeInit()` | postfix | Drop in-memory caches on load |
+
+The approach re-check runs from a `GameComponent` (`BetterHuntersGameComponent`), **not** a per-pawn
+Harmony patch — see below.
 
 The hunt approach chain is:
 
@@ -92,8 +94,8 @@ commits to the cell: the pawn walks the whole path, and its fire loop only recom
 *loses line of fire* — never when the standoff simply becomes unsafe. So a prey that advances, or a herd
 that gathers, while the hunter is walking in or lining up the shot leaves the chosen distance stale.
 
-The **`JobDriver.DriverTick` postfix** (filtered to `JobDefOf.Hunt`, throttled to ~2×/sec) closes that
-gap by re-checking the standoff against the prey's *current* position, and reacts in one of two ways:
+The **approach watchdog** closes that gap by re-checking the standoff against the prey's *current*
+position and reacting in one of two ways:
 
 - **Still walking in** — if the cell the hunter is heading to is now inside the risk cap, it re-routes to
   a fresh safe cell (same `[riskCap, engagementRange]` annulus search the cast-position postfix uses).
@@ -112,10 +114,17 @@ game's built-in pause, which only fires once an animal escalates to a full `Thre
 the colonist (and only if the player's *Auto-pause on* option is at *Major threats* or lower); the mod
 catches the earlier moment the hunter decides to disengage.
 
-The per-tick cost is a type check; the cached solve, distance check, and bounded cell scan only run on
-the throttled tick and only for an actual hunter. It is a postfix that reads state and (rarely) re-routes
-the pather or ends the job, so it does not collide with CE. Toggle it with **Re-check the standoff during
-the approach** (on by default).
+**Performance.** The watchdog is a registry of active hunters ticked from a `GameComponent`, not a
+Harmony patch on every pawn's job driver. Registration piggy-backs on the cast-position prefix — the one
+place that already identifies a managed hunt — so nothing runs for the thousands of non-hunting pawn
+ticks in a large late-game colony. The only always-on cost is the master-switch check plus one empty-set
+check per game tick. A registered hunter is re-checked every ~30 ticks (spread across pawns by
+`IsHashIntervalTick`); each re-check is a cached solve plus two distance comparisons, and the bounded cell
+scan only runs on the rare tick a hunter is actually unsafe. The engagement solve — the mod's heaviest
+recurring op, since it reflects into CE and does a radial herd scan — is cached for ~4s, so the periodic
+re-checks are almost all dictionary hits. The watchdog only reads state and (rarely) re-routes the pather
+or ends the job, so it does not collide with CE. Toggle it with **Re-check the standoff during the
+approach** (on by default).
 
 Only `JobDefOf.Hunt` is affected. Predator hunting (`JobDefOf.PredatorHunt`), drafted combat, and CE
 melee hunting all keep stock behaviour. The downed-prey melee-execute and corpse-collection phases of the

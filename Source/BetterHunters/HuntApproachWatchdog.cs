@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -20,29 +19,23 @@ namespace BetterHunters
     /// or lining up the shot, the safe distance goes stale and it fires from inside the risk cap anyway -
     /// the "it never double-checked" behaviour seen in play.
     ///
-    /// This ticks with the hunt job (postfix on <c>JobDriver.DriverTick</c>, filtered to hunts) and, when
-    /// the standoff has gone stale against the prey's <em>current</em> position, does one of two things:
-    ///   - still walking in : re-route to a fresh safe cell. There is no shot in progress to disturb, so
-    ///                        this is seamless.
+    /// This is a small registry of active hunters, ticked from <see cref="BetterHuntersGameComponent"/>.
+    /// Registration is piggy-backed on the cast-position patch (the one place that already identifies a
+    /// managed hunt), so there is <em>no per-tick Harmony patch on every pawn's job driver</em> - the only
+    /// always-on cost is one empty-set check per game tick. Each registered hunter is re-checked at a
+    /// throttled interval against the prey's <em>current</em> position, and when the standoff has gone
+    /// stale one of two things happens:
+    ///   - still walking in : re-route to a fresh safe cell (no shot in progress, so seamless).
     ///   - already in position (or nowhere safe to walk to) : break off the hunt so the colonist
-    ///                        disengages. A prey that has closed the distance <em>onto</em> the hunter is
-    ///                        the rare "&lt;predator&gt; is hunting &lt;colonist&gt; for food" situation,
-    ///                        which is better handled by stopping than by kiting around it.
-    ///
-    /// The per-tick cost is a type check; the solve, distance check, and the bounded cell scan only run on
-    /// the throttled tick, and only for an actual hunter. It is a postfix that reads state and (rarely)
-    /// re-routes the pather or ends the job, so it does not collide with CE.
+    ///     disengages. A prey that has closed the distance <em>onto</em> the hunter is the rare
+    ///     "&lt;predator&gt; is hunting &lt;colonist&gt; for food" situation, better handled by stopping.
     /// </summary>
-    [HarmonyPatch(typeof(JobDriver), nameof(JobDriver.DriverTick))]
     public static class HuntApproachWatchdog
     {
         /// <summary>Slack (cells) so a hunter sitting right at the risk cap does not thrash in and out.</summary>
         private const float Hysteresis = 1f;
 
-        /// <summary>
-        /// How often the standoff is re-checked. Half a second is a responsive enough reaction for a rare
-        /// event, and throttling keeps a break -> re-issue cycle (if the prey keeps pace) from spinning.
-        /// </summary>
+        /// <summary>How often each hunter's standoff is re-checked. Half a second is responsive enough.</summary>
         private const int RecheckIntervalTicks = 30;
 
         /// <summary>
@@ -52,45 +45,90 @@ namespace BetterHunters
         /// </summary>
         private const int NotifyThrottleTicks = 2500;
 
+        /// <summary>Currently managed hunters. Populated by the cast-position patch, pruned as they stop.</summary>
+        private static readonly HashSet<Pawn> Watched = new HashSet<Pawn>();
+
+        /// <summary>Reused each tick so a re-entrant registration can't mutate the set mid-iteration.</summary>
+        private static readonly List<Pawn> TickBuffer = new List<Pawn>();
+        private static readonly List<Pawn> ToRemove = new List<Pawn>();
+
         /// <summary>Per-hunter tick of the last break-off pause/notify. Cleared on load via <see cref="Reset"/>.</summary>
         private static readonly Dictionary<int, int> LastBreakNoticeTick = new Dictionary<int, int>();
 
-        /// <summary>Drops the notify-throttle state. Called on map/game transitions.</summary>
-        public static void Reset() => LastBreakNoticeTick.Clear();
-
-        public static void Postfix(JobDriver __instance)
+        /// <summary>Adds a hunter to the watch set. Idempotent; called when a managed hunt sets up.</summary>
+        public static void Register(Pawn hunter)
         {
-            if (!(__instance is JobDriver_Hunt))
+            if (hunter != null)
             {
-                return;
-            }
-
-            BetterHuntersSettings s = BetterHuntersMod.Settings;
-            if (s == null || !s.enabled || !s.recheckDuringApproach || !CeBindings.CoreAvailable)
-            {
-                return;
-            }
-
-            try
-            {
-                Recheck(__instance, s);
-            }
-            catch (Exception ex)
-            {
-                Log.ErrorOnce("[BetterHunters] approach watchdog failed: " + ex, 0x5BE7B3);
+                Watched.Add(hunter);
             }
         }
 
-        private static void Recheck(JobDriver driver, BetterHuntersSettings s)
+        /// <summary>Drops all watch and throttle state. Called on map/game transitions.</summary>
+        public static void Reset()
         {
-            Pawn hunter = driver.pawn;
-            Job job = hunter?.CurJob;
-            if (hunter == null || !hunter.Spawned || job == null || job.def != JobDefOf.Hunt)
+            Watched.Clear();
+            TickBuffer.Clear();
+            ToRemove.Clear();
+            LastBreakNoticeTick.Clear();
+        }
+
+        /// <summary>
+        /// Ticked once per game tick by the game component. Iterates only the handful of active hunters -
+        /// nothing runs for the rest of the colony - and re-checks each on its throttled interval.
+        /// </summary>
+        public static void Tick(BetterHuntersSettings s)
+        {
+            if (Watched.Count == 0)
             {
                 return;
             }
 
-            if (!hunter.IsHashIntervalTick(RecheckIntervalTicks))
+            // Snapshot first: Recheck can end a job, which may synchronously start another and re-register
+            // a hunter, and mutating Watched while iterating it would throw.
+            TickBuffer.Clear();
+            TickBuffer.AddRange(Watched);
+
+            for (int i = 0; i < TickBuffer.Count; i++)
+            {
+                Pawn hunter = TickBuffer[i];
+
+                if (hunter == null || !hunter.Spawned || hunter.CurJobDef != JobDefOf.Hunt)
+                {
+                    ToRemove.Add(hunter);
+                    continue;
+                }
+
+                if (!hunter.IsHashIntervalTick(RecheckIntervalTicks))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Recheck(hunter, s);
+                }
+                catch (Exception ex)
+                {
+                    Log.ErrorOnce("[BetterHunters] approach watchdog failed: " + ex, 0x5BE7B3);
+                }
+            }
+
+            if (ToRemove.Count > 0)
+            {
+                for (int i = 0; i < ToRemove.Count; i++)
+                {
+                    Watched.Remove(ToRemove[i]);
+                }
+
+                ToRemove.Clear();
+            }
+        }
+
+        private static void Recheck(Pawn hunter, BetterHuntersSettings s)
+        {
+            Job job = hunter.CurJob;
+            if (job == null || job.def != JobDefOf.Hunt)
             {
                 return;
             }

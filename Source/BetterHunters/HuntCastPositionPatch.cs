@@ -97,6 +97,13 @@ namespace BetterHunters
                 // Cap the far side. Vanilla's scorer prefers cells near the caster, so with this ceiling
                 // in place the hunter walks in only until the shot becomes easy, then stops.
                 newReq.maxRangeFromTarget = Mathf.Min(newReq.maxRangeFromTarget, sol.engagementRange);
+
+                // This is the single place that already identifies a managed hunt, so register the hunter
+                // for the approach re-check here rather than paying a per-tick patch on every pawn's driver.
+                if (s.recheckDuringApproach)
+                {
+                    HuntApproachWatchdog.Register(hunter);
+                }
             }
             catch (Exception ex)
             {
