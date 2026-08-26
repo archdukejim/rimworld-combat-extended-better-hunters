@@ -3,6 +3,7 @@
   <name>Better Hunters (Combat Extended)</name>
   <author>archdukejim</author>
   <packageId>archdukejim.betterhunters</packageId>
+  <modVersion>1.0.0</modVersion>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -34,6 +35,18 @@ Behaviour only. No new defs, no saved data - safe to add to or remove from an ex
 Affects the colonist hunting job only. Predator hunting, drafted combat and CE melee hunting are
 left exactly as they were.
 
+Version: 1.0.0
+
+Changelog:
+1.0.0 - Initial release
+- Smart hunter positioning: walks in only until CE's own hit-chance solver says the first shot is an
+  easy kill, and no closer than a safety standoff scaled to how likely and how bad retaliation is.
+- Re-checks the standoff during the whole approach, not just at the start: re-routes to a fresh safe
+  cell if the prey drifts toward the firing spot, and breaks off the hunt - with an optional pause and
+  alert so you can take over - if the prey closes the distance onto the hunter.
+- Deploys a CE bipod at the firing position before shooting, which stock CE never does for hunters.
+
+Support development: https://ko-fi.com/archdukejim
 Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3784626800
 Source: https://github.com/archdukejim/rimworld-combat-extended-better-hunters</description>
   <modDependencies>
