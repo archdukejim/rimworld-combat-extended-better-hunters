@@ -43,6 +43,36 @@ namespace BetterHunters
         /// <summary>Deploy a CE bipod, if present, before taking the shot.</summary>
         public bool deployBipod = true;
 
+        /// <summary>
+        /// Keep re-checking the safe standoff during the approach instead of committing once. When the
+        /// prey advances or a herd gathers while the hunter is walking in, it re-picks a safe cell; and
+        /// it will cancel a shot lined up from inside the risk cap so the hunter steps back out first.
+        /// </summary>
+        public bool recheckDuringApproach = true;
+
+        /// <summary>
+        /// When a hunter breaks off because the prey closed inside the safety distance, pause the game and
+        /// flag the pawn, so the player can take over and micro. Only meaningful with the re-check on.
+        /// </summary>
+        public bool pauseOnBreakOff = true;
+
+        /// <summary>
+        /// Before firing, check what is in the line of fire beyond the prey. The hunter will never shoot
+        /// with a friendly pawn behind the target, and prefers not to fire toward the colony's own
+        /// buildings. If the prey moves so a friendly ends up behind it, the hunter repositions; if no
+        /// safe angle exists it cancels the hunt.
+        /// </summary>
+        public bool checkShotBackdrop = true;
+
+        /// <summary>How far past the prey the backdrop scan reaches, in cells. The scan stops at the first wall.</summary>
+        public float backdropCheckRange = 20f;
+
+        /// <summary>
+        /// Also treat the colony's own buildings as something to fire clear of. Buildings are only avoided
+        /// when a cleaner angle exists - unlike a friendly pawn, they never cancel a shot.
+        /// </summary>
+        public bool avoidBuildingBackdrop = true;
+
         public bool debugLogging = false;
 
         public override void ExposeData()
@@ -57,6 +87,11 @@ namespace BetterHunters
             Scribe_Values.Look(ref maxRiskCapCells, "maxRiskCapCells", 40f);
             Scribe_Values.Look(ref closeForOneShotKill, "closeForOneShotKill", true);
             Scribe_Values.Look(ref deployBipod, "deployBipod", true);
+            Scribe_Values.Look(ref recheckDuringApproach, "recheckDuringApproach", true);
+            Scribe_Values.Look(ref pauseOnBreakOff, "pauseOnBreakOff", true);
+            Scribe_Values.Look(ref checkShotBackdrop, "checkShotBackdrop", true);
+            Scribe_Values.Look(ref backdropCheckRange, "backdropCheckRange", 20f);
+            Scribe_Values.Look(ref avoidBuildingBackdrop, "avoidBuildingBackdrop", true);
             Scribe_Values.Look(ref debugLogging, "debugLogging", false);
         }
     }
@@ -125,6 +160,46 @@ namespace BetterHunters
             list.CheckboxLabeled("Deploy CE bipod before shooting", ref Settings.deployBipod,
                 "If the hunting weapon has a Combat Extended bipod, set it up at the firing position "
                 + "before taking the shot.");
+
+            list.CheckboxLabeled("Re-check the standoff during the approach", ref Settings.recheckDuringApproach,
+                "Keep verifying the safe distance while the hunter walks in, instead of committing to the "
+                + "spot chosen at the start. If the prey drifts toward that spot, the hunter re-routes to a "
+                + "fresh safe cell. If the prey closes the distance once the hunter is in position - the "
+                + "rare case of a predator turning to hunt the colonist - the hunter breaks off rather than "
+                + "shooting from inside the safety distance.");
+
+            if (Settings.recheckDuringApproach)
+            {
+                // Sub-option of the re-check above; only relevant when a break-off can happen.
+                list.CheckboxLabeled("      Pause and flag the pawn on break-off", ref Settings.pauseOnBreakOff,
+                    "When a hunter breaks off because the prey has closed inside the safety distance, pause "
+                    + "the game and jump a message to the pawn, so you can step in and micro. The game only "
+                    + "pauses on its own once an animal escalates to a full predator-hunt of the colonist; "
+                    + "this catches the earlier moment the hunter decides to disengage.");
+            }
+
+            list.GapLine();
+
+            list.CheckboxLabeled("Check the shot's backdrop", ref Settings.checkShotBackdrop,
+                "Before firing, the hunter looks at what is behind the prey in the line of fire. It will "
+                + "never take a shot with a colonist, pet, or other friendly pawn downrange - if the prey "
+                + "drifts so a friendly ends up behind it, the hunter shifts to a safe angle, and if no "
+                + "safe angle exists it cancels the hunt and tells you why.");
+
+            if (Settings.checkShotBackdrop)
+            {
+                LabelWithTip(list, $"      Backdrop scan distance: {Settings.backdropCheckRange:F0} cells",
+                    "How far past the prey to look for friendlies and buildings a stray shot could reach. "
+                    + "The scan always stops at the first wall, which safely absorbs the shot.");
+                Settings.backdropCheckRange = list.Slider(Settings.backdropCheckRange, 5f, 40f);
+
+                list.CheckboxLabeled("      Also keep the shot clear of your buildings", ref Settings.avoidBuildingBackdrop,
+                    "Prefer firing angles with no player-built structure behind the prey. Buildings are only "
+                    + "avoided when a cleaner angle is available - unlike a friendly pawn, they never cancel "
+                    + "a shot.");
+            }
+
+            list.GapLine();
 
             list.CheckboxLabeled("Debug logging", ref Settings.debugLogging,
                 "Logs the computed easy-shot range, risk cap and final engagement range for each hunt.");

@@ -3,6 +3,7 @@
   <name>Better Hunters (Combat Extended)</name>
   <author>archdukejim</author>
   <packageId>archdukejim.betterhunters</packageId>
+  <modVersion>1.1.0</modVersion>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -20,12 +21,18 @@ be: the animal's revenge chance, its body size, whether it is a predator, and ho
 are standing nearby. If no easy shot exists outside that standoff, the hunter holds and takes the
 worse shot rather than starting a fight - unless the round should drop the animal outright.
 
+It also checks what is behind the prey before firing. A missed shot in Combat Extended keeps flying
+past the target, so the hunter will not take a shot with a colonist, pet or other friendly
+downrange: it moves to a clear angle, or calls off the hunt - removing the mark and flagging it -
+when no safe angle exists. Your own buildings are kept out of the line of fire too, whenever a
+cleaner angle is free.
+
 If the hunting weapon carries a CE bipod, the hunter deploys it at the firing position before
 shooting, then carries on with the hunt. Stock CE never does this for a hunter: its bipod auto-setup
 only runs for drafted pawns, and a colonist on hunting duty never is.
 
 Everything is configurable in mod settings - easy-shot hit chance, tolerated revenge chance, herd
-sensitivity, maximum standoff, and a master on/off switch.
+sensitivity, maximum standoff, shot-backdrop safety, and a master on/off switch.
 
 REQUIRES COMBAT EXTENDED. This mod does nothing without it.
 
@@ -34,6 +41,21 @@ Behaviour only. No new defs, no saved data - safe to add to or remove from an ex
 Affects the colonist hunting job only. Predator hunting, drafted combat and CE melee hunting are
 left exactly as they were.
 
+Version: 1.1.0
+
+Changelog:
+1.1.0 - Shot backdrop safety
+- Hunters now check the line of fire beyond the prey and will never take a shot with a colonist, pet
+  or other friendly downrange. They shift to a clear angle, or - when no safe angle exists - call off
+  the hunt, remove the mark, and raise an alert.
+- Because a missed CE shot keeps flying past the target, this also keeps your own buildings out of the
+  line of fire whenever a cleaner angle is free.
+- Enforced both when the shot is first lined up and continuously during the approach, so a prey that
+  moves or a colonist that wanders downrange is caught too.
+- New settings: check the shot's backdrop (on by default), backdrop scan distance, and whether to
+  keep buildings clear.
+
+Support development: https://ko-fi.com/archdukejim
 Steam Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=3784626800
 Source: https://github.com/archdukejim/rimworld-combat-extended-better-hunters</description>
   <modDependencies>
