@@ -20,7 +20,13 @@ namespace BetterHunters
         public override void GameComponentTick()
         {
             BetterHuntersSettings s = BetterHuntersMod.Settings;
-            if (s == null || !s.enabled || !s.recheckDuringApproach || !CeBindings.CoreAvailable)
+            if (s == null || !s.enabled || !CeBindings.CoreAvailable)
+            {
+                return;
+            }
+
+            // The watchdog serves the standoff re-check and the backdrop re-check; run it if either is on.
+            if (!s.recheckDuringApproach && !s.checkShotBackdrop)
             {
                 return;
             }

@@ -99,8 +99,10 @@ namespace BetterHunters
                 newReq.maxRangeFromTarget = Mathf.Min(newReq.maxRangeFromTarget, sol.engagementRange);
 
                 // This is the single place that already identifies a managed hunt, so register the hunter
-                // for the approach re-check here rather than paying a per-tick patch on every pawn's driver.
-                if (s.recheckDuringApproach)
+                // for the mid-approach re-check here rather than paying a per-tick patch on every pawn's
+                // driver. The watchdog handles both the standoff re-check and the backdrop re-check, so
+                // register when either is enabled.
+                if (s.recheckDuringApproach || s.checkShotBackdrop)
                 {
                     HuntApproachWatchdog.Register(hunter);
                 }
@@ -141,44 +143,109 @@ namespace BetterHunters
                         reentrant = false;
                     }
 
-                    return;
+                    if (!__result)
+                    {
+                        return; // truly nowhere to stand; nothing left to safeguard
+                    }
+                }
+                else
+                {
+                    // Vanilla found a cell. If it landed inside the danger radius, pull it back out first;
+                    // then, whatever cell we are left with, make sure it is not firing at a friendly.
+                    MaybeRepickForRiskCap(__state, newReq, ref dest);
                 }
 
-                float riskCap = __state.solution.riskCap;
-                if (riskCap <= 0f || __state.solution.oneShotOverride)
-                {
-                    return;
-                }
-
-                // If the weapon cannot even reach the safe distance, the engagement range was clamped
-                // below the risk cap and there is no safe cell that can also take the shot. Leave
-                // vanilla's choice alone rather than pushing the hunter somewhere it cannot fire from.
-                if (__state.solution.engagementRange < riskCap)
-                {
-                    return;
-                }
-
-                float chosenDist = (dest - __state.victim.Position).LengthHorizontal;
-                if (chosenDist >= riskCap)
-                {
-                    return;
-                }
-
-                // Vanilla picked a cell inside the danger radius (usually because it had good cover).
-                // Re-pick from the annulus [riskCap, engagementRange].
-                if (StandoffCells.TryFind(
-                        __state.hunter, __state.victim, __state.verb,
-                        __state.solution.riskCap, __state.solution.engagementRange,
-                        newReq.maxRangeFromCaster, newReq.locus, newReq.maxRangeFromLocus,
-                        out IntVec3 better))
-                {
-                    dest = better;
-                }
+                EnforceSafeBackdrop(__state, newReq, ref dest, ref __result);
             }
             catch (Exception ex)
             {
                 Log.ErrorOnce("[BetterHunters] cast-position postfix failed: " + ex, 0x5BE7B2);
             }
+        }
+
+        /// <summary>
+        /// Pulls the chosen cell back out to the safe annulus when the vanilla scorer picked one inside the
+        /// risk cap (usually because it had good cover). No-op when the solver decided a close shot was fine
+        /// (one-shot kill, harmless prey, or a weapon that cannot reach the safe distance anyway).
+        /// </summary>
+        private static void MaybeRepickForRiskCap(HuntEngagement st, CastPositionRequest newReq, ref IntVec3 dest)
+        {
+            BetterHuntersSettings s = BetterHuntersMod.Settings;
+
+            float riskCap = st.solution.riskCap;
+            if (riskCap <= 0f || st.solution.oneShotOverride || st.solution.engagementRange < riskCap)
+            {
+                return;
+            }
+
+            float chosenDist = (dest - st.victim.Position).LengthHorizontal;
+            if (chosenDist >= riskCap)
+            {
+                return;
+            }
+
+            if (StandoffCells.TryFind(
+                    st.hunter, st.victim, st.verb,
+                    st.solution.riskCap, st.solution.engagementRange,
+                    newReq.maxRangeFromCaster, newReq.locus, newReq.maxRangeFromLocus,
+                    s, s.checkShotBackdrop, out IntVec3 better, out _))
+            {
+                dest = better;
+            }
+        }
+
+        /// <summary>
+        /// Final safety gate: never let the shot go off with a friendly pawn behind the prey. If the chosen
+        /// cell has a hazardous backdrop, try to re-pick a cleaner angle from the safe annulus; if the only
+        /// problem is a building it is left as-is (acceptable), but if a pawn is behind it and no clean angle
+        /// exists the hunt is cancelled outright.
+        /// </summary>
+        private static void EnforceSafeBackdrop(HuntEngagement st, CastPositionRequest newReq, ref IntVec3 dest, ref bool __result)
+        {
+            BetterHuntersSettings s = BetterHuntersMod.Settings;
+            if (!s.checkShotBackdrop)
+            {
+                return;
+            }
+
+            Map map = st.victim.Map;
+            BackdropHazard destHazard = ShotBackdrop.Evaluate(map, dest, st.victim, st.hunter, s);
+            if (destHazard == BackdropHazard.Clear)
+            {
+                return;
+            }
+
+            // Widen the ring a little when engagement sits right on the risk cap, matching StandoffCells.
+            float maxDist = Mathf.Max(st.solution.engagementRange, st.solution.riskCap + 3f);
+
+            bool found = StandoffCells.TryFind(
+                st.hunter, st.victim, st.verb,
+                st.solution.riskCap, maxDist,
+                newReq.maxRangeFromCaster, newReq.locus, newReq.maxRangeFromLocus,
+                s, true, out IntVec3 better, out BackdropHazard betterHazard);
+
+            if (found && betterHazard < destHazard)
+            {
+                dest = better;
+                return;
+            }
+
+            if (found)
+            {
+                return; // best available is no better than what we have (both fire over a building) - accept it
+            }
+
+            // No cell without a pawn behind the prey exists anywhere in range.
+            if (destHazard == BackdropHazard.Pawn)
+            {
+                // Do not end the job here - we are inside the cast-position finder. Reporting failure lets
+                // JobDriver_Hunt's GotoCastPosition toil end the job cleanly on its own.
+                ShotBackdrop.AbortHuntForSafety(st.hunter, st.victim, s, endJob: false);
+                __result = false;
+                dest = IntVec3.Invalid;
+            }
+
+            // destHazard == Building with no cleaner option: firing over a building is acceptable, leave it.
         }
     }
 }

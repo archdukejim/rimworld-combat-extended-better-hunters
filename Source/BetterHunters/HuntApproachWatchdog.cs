@@ -161,6 +161,20 @@ namespace BetterHunters
                 return;
             }
 
+            // Backdrop re-check first, and independent of the risk cap: even prey the standoff logic leaves
+            // alone (harmless animals, one-shot kills) must never be shot with a friendly pawn behind it. If
+            // the prey has drifted so a friendly is now downrange, shift to a clear angle - or, when no clear
+            // angle exists, cancel the hunt.
+            if (s.checkShotBackdrop && TryHandleBackdrop(hunter, verb, victim, job, sol, s))
+            {
+                return;
+            }
+
+            if (!s.recheckDuringApproach)
+            {
+                return;
+            }
+
             // Cases where the solver deliberately did not push the hunter out to a safe standoff:
             //   oneShotOverride  - it chose to close for a clean kill, which provokes nothing.
             //   riskCap <= 0     - the prey retaliates for nothing.
@@ -185,7 +199,7 @@ namespace BetterHunters
             float maxDist = Mathf.Max(sol.engagementRange, sol.riskCap + 3f);
             if (moving
                 && StandoffCells.TryFind(hunter, victim, verb, sol.riskCap, maxDist, 0f, IntVec3.Invalid, 0f,
-                    out IntVec3 safeCell)
+                    s, s.checkShotBackdrop, out IntVec3 safeCell, out _)
                 && hunter.pather.Destination.Cell != safeCell)
             {
                 hunter.pather.StartPath(safeCell, PathEndMode.OnCell);
@@ -217,6 +231,54 @@ namespace BetterHunters
             }
 
             hunter.jobs.EndCurrentJob(JobCondition.InterruptForced);
+        }
+
+        /// <summary>
+        /// Keeps the shot's backdrop safe for the whole approach. If a friendly pawn has ended up in the
+        /// line of fire beyond the prey - because the prey moved, or a colonist wandered downrange - the
+        /// hunter is re-routed to a clear angle; if no clear angle exists anywhere in range the hunt is
+        /// cancelled outright (designation removed, player notified). Returns true when it acted, so the
+        /// caller stops before the standoff logic runs.
+        /// </summary>
+        private static bool TryHandleBackdrop(Pawn hunter, Verb verb, Pawn victim, Job job, EngagementSolution sol, BetterHuntersSettings s)
+        {
+            bool moving = hunter.pather.Moving;
+            IntVec3 firingPos = moving ? hunter.pather.Destination.Cell : hunter.Position;
+
+            if (ShotBackdrop.Evaluate(hunter.Map, firingPos, victim, hunter, s) != BackdropHazard.Pawn)
+            {
+                return false; // nothing friendly behind the prey from where the shot will be taken
+            }
+
+            // A friendly is downrange. Prefer shifting to a clear angle over cancelling - "if pawns are
+            // blocking clean shots" means when there is no clear shot left, not the instant one is briefly
+            // occluded.
+            float maxDist = Mathf.Max(sol.engagementRange, sol.riskCap + 3f);
+            if (StandoffCells.TryFind(hunter, victim, verb, sol.riskCap, maxDist, 0f, IntVec3.Invalid, 0f,
+                    s, true, out IntVec3 safeCell, out _)
+                && hunter.pather.Destination.Cell != safeCell)
+            {
+                hunter.pather.StartPath(safeCell, PathEndMode.OnCell);
+                hunter.Map.pawnDestinationReservationManager.Reserve(hunter, job, safeCell);
+
+                if (s.debugLogging)
+                {
+                    Log.Message($"[BetterHunters] {hunter.LabelShort} re-routed mid-approach to {safeCell} to "
+                                + $"clear a friendly from behind {victim.LabelShort}.");
+                }
+
+                return true;
+            }
+
+            // No firing angle without a friendly behind the prey. Cancel the hunt for safety.
+            if (s.debugLogging)
+            {
+                Log.Message($"[BetterHunters] {hunter.LabelShort} breaking off hunt of {victim.LabelShort}: a "
+                            + "friendly is in the line of fire behind it and no clear angle is available.");
+            }
+
+            ShotBackdrop.AbortHuntForSafety(hunter, victim, s, endJob: true);
+            return true;
         }
 
         /// <summary>

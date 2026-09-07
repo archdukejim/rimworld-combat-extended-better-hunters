@@ -21,16 +21,31 @@ namespace BetterHunters
         // cells are hit early anyway.
         private const int MaxExamined = 250;
 
+        // A building behind the prey is acceptable but not ideal, so a cell that fires over one is scored
+        // as if it were this much further to walk. The value dwarfs any real walking distance, so a cell
+        // with a clean backdrop always wins over one with a building behind it, yet a building-backed cell
+        // still beats no cell at all.
+        private const float BuildingBackdropPenalty = 1_000_000f;
+
         /// <param name="maxRangeFromCaster">Caller cap on distance from the hunter, or 0 for none.</param>
         /// <param name="locus">Locus for <paramref name="maxRangeFromLocus"/>; ignored when that is 0.</param>
         /// <param name="maxRangeFromLocus">Caller cap on distance from the locus, or 0 for none.</param>
+        /// <param name="avoidBackdrop">
+        /// When true, cells with a friendly pawn behind the prey are rejected outright and cells firing over
+        /// a player building are penalised, so the returned cell has the safest available backdrop. When
+        /// false the backdrop is ignored (original behaviour).
+        /// </param>
+        /// <param name="resultHazard">Backdrop hazard of the chosen cell; <see cref="BackdropHazard.Clear"/>
+        /// when none was found or the check was off.</param>
         internal static bool TryFind(
             Pawn hunter, Pawn victim, Verb verb,
             float minDist, float maxDist,
             float maxRangeFromCaster, IntVec3 locus, float maxRangeFromLocus,
-            out IntVec3 result)
+            BetterHuntersSettings s, bool avoidBackdrop,
+            out IntVec3 result, out BackdropHazard resultHazard)
         {
             result = IntVec3.Invalid;
+            resultHazard = BackdropHazard.Clear;
 
             Map map = victim.Map;
             if (map == null || hunter.Map != map)
@@ -82,10 +97,27 @@ namespace BetterHunters
                 }
 
                 float score = (cell - hunter.Position).LengthHorizontalSquared;
+                BackdropHazard hazard = BackdropHazard.Clear;
+
+                if (avoidBackdrop)
+                {
+                    hazard = ShotBackdrop.Evaluate(map, cell, victim, hunter, s);
+                    if (hazard == BackdropHazard.Pawn)
+                    {
+                        continue; // never fire with a friendly pawn behind the prey
+                    }
+
+                    if (hazard == BackdropHazard.Building)
+                    {
+                        score += BuildingBackdropPenalty;
+                    }
+                }
+
                 if (score < bestScore)
                 {
                     bestScore = score;
                     result = cell;
+                    resultHazard = hazard;
                 }
             }
 
