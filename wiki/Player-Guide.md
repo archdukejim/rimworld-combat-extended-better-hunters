@@ -59,6 +59,27 @@ escalates to hunting your colonist.
 
 You can turn this off and leave just the break-off behaviour.
 
+## Shot backdrop safety
+
+A hunter also checks what is behind the animal before it fires. In Combat Extended a missed
+shot does not vanish — it keeps flying past the target until a wall stops it — so a shot taken
+with something valuable downrange can hit it by accident.
+
+Before firing, and again continuously as it approaches, the hunter traces the line of fire past
+the prey:
+
+- **A friendly pawn behind the prey is a hard stop.** Colonists, pets, prisoners, visitors and
+  allies are never fired past. The hunter moves to a clear angle instead; if the prey drifts, or
+  a colonist wanders downrange, it repositions on the fly.
+- **If no clear angle exists at all**, the hunter calls off the hunt: it removes the hunt mark
+  from the animal — so no colonist keeps re-attempting the unsafe shot — and raises an alert
+  telling you why. Re-mark it once the area is clear.
+- **Your own buildings** are kept out of the line of fire too, but only softly: the hunter
+  prefers an angle with nothing of yours behind the prey, yet will still take a shot over a
+  building when that is the only angle available. A solid wall is the ideal backstop.
+
+Wild animals and hostiles behind the prey are not protected — only things you would not want shot.
+
 ## CE bipod deploy
 
 If the hunting weapon has a Combat Extended bipod, the hunter sets it up at the firing position
@@ -84,6 +105,9 @@ Open **Options → Mod settings → Better Hunters (CE)**.
 | Deploy CE bipod before shooting | on | Set up a fitted CE bipod at the firing position first. |
 | Re-check the standoff during the approach | on | Re-route to a safe cell if the prey drifts; break off if it closes onto the hunter. |
 | ↳ Pause and flag the pawn on break-off | on | On break-off, pause the game and jump a message to the hunter so you can micro. |
+| Check the shot's backdrop | on | Never fire with a colonist, pet or other friendly behind the prey; reposition, or call off the hunt if there's no clear angle. |
+| ↳ Backdrop scan distance | 20 cells | How far past the prey to look for friendlies and buildings. The scan stops at the first wall. |
+| ↳ Also keep the shot clear of your buildings | on | Prefer angles with no building of yours behind the prey — only when a cleaner angle is free; never cancels a shot. |
 | Debug logging | off | Logs the computed ranges and decisions for each hunt (for troubleshooting). |
 
 ---

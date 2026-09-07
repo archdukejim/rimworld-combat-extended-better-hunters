@@ -4,7 +4,7 @@
 
 Makes Combat Extended hunters position before they shoot. Stock CE hunters open fire the instant an animal enters weapon range — ranges are long, CE's hit chance falls off hard with distance, and the usual result is a string of low-probability shots that wound the animal, which then flees or turns manhunter.
 
-Better Hunters walks the hunter in until Combat Extended's own hit-chance solver says the first shot is a high-probability kill, then fires — but never closer than a safety standoff worked out from the animal's revenge chance, its body size, whether it's a predator, and how many of its herd are nearby. It keeps re-checking that standoff for the whole approach, and if the animal closes onto the hunter it breaks off rather than fighting point blank. If the weapon has a CE bipod, the hunter deploys it before shooting.
+Better Hunters walks the hunter in until Combat Extended's own hit-chance solver says the first shot is a high-probability kill, then fires — but never closer than a safety standoff worked out from the animal's revenge chance, its body size, whether it's a predator, and how many of its herd are nearby. It keeps re-checking that standoff for the whole approach, and if the animal closes onto the hunter it breaks off rather than fighting point blank. It also checks the line of fire beyond the prey and will never shoot with a colonist, pet or other friendly downrange — a missed CE shot keeps flying past the target, so the hunter moves to a clear angle or calls off the hunt if there is none. If the weapon has a CE bipod, the hunter deploys it before shooting.
 
 [b]Keywords:[/b] Combat Extended, CE, hunting, hunter AI, manhunter, revenge, accuracy, hit chance, bipod, positioning, engagement range, animal hunting, colonist AI.
 
@@ -14,6 +14,7 @@ Better Hunters walks the hunter in until Combat Extended's own hit-chance solver
 [list]
 [*] Hunters close to the range where CE says the shot actually lands, instead of firing at max range
 [*] A safety standoff scaled to revenge chance, body size, predator status and herd size
+[*] Checks the shot's backdrop: never fires with a colonist, pet or friendly behind the prey — it repositions to a clear angle, or calls off the hunt (removing the mark, with an alert) when there is none, and keeps your own buildings out of the line of fire too
 [*] Re-checks the standoff during the whole approach: re-routes to a safe cell if the prey drifts, and breaks off — with an optional pause and alert — if the prey closes onto the hunter
 [*] CE bipods deployed before the shot — stock CE never does this for hunters, because its auto-setup requires a drafted pawn
 [*] Every threshold is a slider, plus a master on/off switch
@@ -29,10 +30,11 @@ Better Hunters walks the hunter in until Combat Extended's own hit-chance solver
 [/list]
 
 [h1]Version[/h1]
-[b]1.0.0[/b]
+[b]1.1.0[/b]
 
 [b]Changelog[/b]
 [list]
+[*] 1.1.0 — Shot backdrop safety: hunters check the line of fire beyond the prey and never shoot with a colonist, pet or friendly downrange — they reposition to a clear angle, or call off the hunt (removing the mark, with an alert) when none exists, and keep your own buildings clear too. Enforced when the shot is lined up and continuously during the approach. New settings for the backdrop check, its scan distance, and building avoidance.
 [*] 1.0.0 — Initial release: smart hunter positioning to CE's easy-shot range with a risk-scaled safety standoff; approach re-check that re-routes to a safe cell or breaks off (with optional pause/alert) if the prey closes in; CE bipod deploy before the shot.
 [/list]
 

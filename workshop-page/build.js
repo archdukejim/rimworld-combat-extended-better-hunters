@@ -82,6 +82,12 @@ const GLYPHS = {
       <circle cx="26" cy="74" r="8.5" fill="${BG}"/></g>`,
   check: `<g fill="none" stroke="${ACCENT}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="50" cy="50" r="36"/><path d="M32 51 l13 13 24 -28"/></g>`,
+  // A shot from the left is stopped by a wall; a colonist stands safely behind it.
+  backdrop: `<g fill="none" stroke="${ACCENT}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 44 h30"/><path d="M30 37 l9 7 -9 7"/>
+      <path d="M48 18 v52 M60 18 v52"/>
+      <path d="M48 33 h12 M48 46 h12 M48 59 h12" opacity="0.45"/>
+      <circle cx="80" cy="40" r="8.5"/><path d="M67 72 a13 13 0 0 1 26 0"/></g>`,
 };
 
 // ---- header ribbon ---------------------------------------------------------
@@ -220,6 +226,17 @@ const blocks = [
       { k: 'Danger scaling', v: 'body size and predator flag' },
       { k: 'Herd pressure', v: 'live scan for nearby kin' },
       { k: 'Standoff ceiling', v: '40 cells, configurable' },
+    ],
+  },
+  {
+    type: 'feature', glyph: 'backdrop', title: 'Never a colonist in the backdrop',
+    flavor: "Know your target — and what's behind it.",
+    body: "A stray shot doesn't vanish when it misses — in Combat Extended it keeps flying past the prey until a wall stops it. So before firing, the hunter checks the line of fire beyond the target. It will never take a shot with a colonist, pet or other friendly downrange: it shifts to a clear angle, and if none exists it calls off the hunt and flags it. Your own buildings are kept clear too, whenever a cleaner angle is free.",
+    rows: [
+      { k: 'Hard rule', v: 'no friendly pawn behind the prey' },
+      { k: 'On a blocked shot', v: 'reposition, or call it off' },
+      { k: 'Buildings', v: 'avoided when a clear angle exists' },
+      { k: 'Ideal backstop', v: 'a solid wall' },
     ],
   },
   {
